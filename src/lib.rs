@@ -31,7 +31,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use utils::into_string;
 
-static API_URL: &'static str = "https://api.forecast.io";
+static API_URL: &'static str = "https://api.darksky.net";
 
 /// A block is a name of a `Datablock` returned from the API. This can be used
 /// to exclude datablocks from being returned from the API, to reduce bandwidth.
@@ -155,7 +155,7 @@ map_names! { Language;
 ///
 /// The values are explained under "Options" and then "units=[setting]":
 ///
-/// <https://developer.forecast.io/docs/v2>
+/// <https://darksky.net/dev/docs>
 pub enum Unit {
     Auto,
     Ca,
@@ -182,8 +182,8 @@ impl Options {
     /// datablocks to exclude, refer to `Block`.
     pub fn exclude(mut self, blocks: Vec<Block>) -> Self {
         let block_names: Vec<&str> = blocks.iter()
-            .map(|block| block.name())
-            .collect();
+                                           .map(|block| block.name())
+                                           .collect();
 
         let list = block_names.join(",");
 
@@ -210,7 +210,7 @@ impl Options {
     /// Sets the unit type returned from the API. Refer to the forecast.io
     /// documentation for more info:
     ///
-    /// <https://developer.forecast.io/docs/v2>
+    /// <https://darksky.net/dev/docs>
     pub fn unit(mut self, unit: Unit) -> Self {
         self.0.insert("units".to_owned(), unit.name().to_owned());
 
@@ -218,17 +218,14 @@ impl Options {
     }
 }
 
-pub fn get_forecast<S: Into<String>>(token: S,
-                                     latitude: f64,
-                                     longitude: f64)
-                                     -> Result<Forecast> {
+pub fn get_forecast<S: Into<String>>(token: S, latitude: f64, longitude: f64) -> Result<Forecast> {
     let response = try!(Client::new()
-        .get(&format!("{}/forecast/{}/{},{}?units=auto",
-                      API_URL,
-                      token.into(),
-                      latitude,
-                      longitude))
-        .send());
+                            .get(&format!("{}/forecast/{}/{},{}?units=auto",
+                                          API_URL,
+                                          token.into(),
+                                          latitude,
+                                          longitude))
+                            .send());
 
     Forecast::decode(try!(serde_json::from_reader(response)))
 }
@@ -238,22 +235,23 @@ pub fn get_forecast_with_options<S, F>(token: S,
                                        longitude: f64,
                                        options: F)
                                        -> Result<Forecast>
-                                       where F: FnOnce(Options) -> Options,
-                                             S: Into<String> {
+    where F: FnOnce(Options) -> Options,
+          S: Into<String>
+{
     let items: Vec<String> = options(Options(HashMap::new()))
-        .0
-        .iter()
-        .map(|(k, v)| format!("{}={}", k, v))
-        .collect();
+                                 .0
+                                 .iter()
+                                 .map(|(k, v)| format!("{}={}", k, v))
+                                 .collect();
     let built = items.join("&");
     let response = try!(Client::new()
-        .get(&format!("{}/forecast/{}/{},{}?{}",
-                      API_URL,
-                      token.into(),
-                      latitude,
-                      longitude,
-                      built))
-        .send());
+                            .get(&format!("{}/forecast/{}/{},{}?{}",
+                                          API_URL,
+                                          token.into(),
+                                          latitude,
+                                          longitude,
+                                          built))
+                            .send());
 
     Forecast::decode(try!(serde_json::from_reader(response)))
 }
@@ -264,21 +262,15 @@ mod tests {
     fn get_forecast() {
         let token = ::std::env::var("FORECAST_TOKEN").expect("forecast token");
 
-        if let Err(why) = ::get_forecast(&token[..],
-                                         37.8267,
-                                         -122.423) {
+        if let Err(why) = ::get_forecast(&token[..], 37.8267, -122.423) {
             panic!("{:?}", why);
         }
 
-        if let Err(why) = ::get_forecast(&token[..],
-                                         39.9042,
-                                         116.4074) {
+        if let Err(why) = ::get_forecast(&token[..], 39.9042, 116.4074) {
             panic!("{:?}", why);
         }
 
-        if let Err(why) = ::get_forecast(&token[..],
-                                         19.2465,
-                                         -99.1013) {
+        if let Err(why) = ::get_forecast(&token[..], 19.2465, -99.1013) {
             panic!("{:?}", why);
         }
     }
@@ -287,23 +279,20 @@ mod tests {
     fn get_forecast_with_options() {
         let token = ::std::env::var("FORECAST_TOKEN").expect("forecast token");
 
-        match ::get_forecast_with_options(
-            &token[..],
-            19.2465,
-            -99.1013,
-            |opt| opt
-                .exclude(vec![::Block::Currently, ::Block::Daily])
-                .extend_hourly()
-                .language(::Language::Es)
-                .unit(::Unit::Si)) {
+        match ::get_forecast_with_options(&token[..], 19.2465, -99.1013, |opt| {
+            opt.exclude(vec![::Block::Currently, ::Block::Daily])
+               .extend_hourly()
+               .language(::Language::Es)
+               .unit(::Unit::Si)
+        }) {
             Ok(forecast) => {
                 assert!(forecast.currently.is_none());
                 assert!(forecast.daily.is_none());
                 assert!(forecast.flags.is_some());
-            },
+            }
             Err(why) => {
                 panic!("{:?}", why);
-            },
+            }
         }
     }
 }
